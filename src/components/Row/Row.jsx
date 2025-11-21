@@ -1,31 +1,148 @@
-import { TextInput, Button, Stack, Group, Checkbox } from '@mantine/core';
-import { useState } from 'react';
+import { TextInput, Button, Stack, Group, Checkbox, Center, Loader, Alert } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { notifications } from '@mantine/notifications';
 
 export function Row() {
   const [inputValue, setInputValue] = useState('');
   const [todos, setTodos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch('https://jsonplaceholder.typicode.com/todos')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Не робит' + res.status);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        const todosWithLocalId = data.slice(0, 10).map((todo) => ({
+          ...todo,
+          localId: todo.id,
+        }));
+        setTodos(todosWithLocalId);
+      })
+      .catch((err) => {
+        setError(err.message);
+        console.error('Ошибка', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const handleAddTodo = () => {
-    if (typeof inputValue === 'string' && inputValue.trim() !== '') {
-      const newTodo = {
-        id: Date.now(),
+    if (!inputValue) return;
+    fetch('https://jsonplaceholder.typicode.com/todos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         title: inputValue,
         completed: false,
-      };
-      setTodos((prev) => [...prev, newTodo]);
-      setInputValue('');
-    }
+        userId: 1,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Не удалось создать задачку');
+        }
+        return res.json();
+      })
+      .then((newTodo) => {
+        setTodos((prev) => [{ ...newTodo, localId: Date.now() }, ...prev]);
+        setInputValue('');
+        notifications.show({
+          title: '✅ Успех',
+          message: 'Задача добавлена',
+          color: 'green',
+          autoClose: 2000,
+        });
+      })
+      .catch((err) => {
+        console.error('Ошибка', err);
+        notifications.show({
+          title: '❌ Ошибка',
+          message: 'Не удалось добавить задачу',
+          color: 'red',
+          autoClose: 3000,
+        });
+      });
   };
 
-  const toggleCompleted = (id) => {
-    setTodos((prevTodos) =>
-      prevTodos.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)),
+  const toggleCompleted = (localId, apiId, currentCompleted) => {
+    const newCompleted = !currentCompleted;
+
+    fetch(`https://jsonplaceholder.typicode.com/todos/${apiId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: newCompleted }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Не удалось обновить');
+        return res.json();
+      })
+      .then((updatedTodo) => {
+        setTodos((prev) =>
+          prev.map((todo) =>
+            todo.localId === localId ? { ...todo, completed: updatedTodo.completed } : todo,
+          ),
+        );
+        notifications.show({
+          title: updatedTodo.completed ? '✅ Выполнено' : '↩️ Отменено',
+          message: updatedTodo.completed
+            ? 'Задача отмечена как выполненная'
+            : 'Задача возвращена в работу',
+          color: updatedTodo.completed ? 'teal' : 'blue',
+          autoClose: 1500,
+        });
+      })
+      .catch((err) => {
+        console.error('Ошибка обновления', err);
+      });
+  };
+
+  const removeTodo = (localId, apiId) => {
+    fetch(`https://jsonplaceholder.typicode.com/todos/${apiId}`, {
+      method: 'DELETE',
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Не удалось удалить');
+        return res.json();
+      })
+      .then(() => {
+        setTodos((prev) => prev.filter((todo) => todo.localId !== localId));
+        notifications.show({
+          title: '✅ Удалено',
+          message: 'Задача удалена',
+          color: 'gray',
+          autoClose: 1500,
+        });
+      })
+      .catch((err) => {
+        console.error('Ошибка', err);
+      });
+  };
+
+  if (loading) {
+    return (
+      <Center>
+        <Loader />
+      </Center>
     );
-  };
+  }
 
-  const removeTodo = (id) => {
-    setTodos((prevTodos) => prevTodos.filter((todo) => todo.id !== id));
-  };
+  if (error) {
+    return (
+      <Alert color="red" title="Ошибка">
+        {error}
+      </Alert>
+    );
+  }
 
   return (
     <Stack p="md" w={400} mx="auto">
@@ -37,10 +154,10 @@ export function Row() {
       <Button onClick={handleAddTodo}>Add</Button>
       <div>
         {todos.map((todo) => (
-          <Group key={todo.id} gap="xs" mb="xs">
+          <Group key={todo.localId} gap="xs" mb="xs">
             <Checkbox
               checked={todo.completed}
-              onChange={() => toggleCompleted(todo.id)}
+              onChange={() => toggleCompleted(todo.localId, todo.id, todo.completed)}
               label={
                 <span style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
                   {todo.title}
@@ -51,7 +168,7 @@ export function Row() {
               size="compact-xs"
               variant="subtle"
               color="gray"
-              onClick={() => removeTodo(todo.id)}
+              onClick={() => removeTodo(todo.localId, todo.id)}
             >
               X
             </Button>
