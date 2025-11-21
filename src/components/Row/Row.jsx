@@ -1,38 +1,11 @@
 import { TextInput, Button, Stack, Group, Checkbox, Center, Loader, Alert } from '@mantine/core';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { useFetchTodos } from '../../hooks/useFetchTodos';
 
 export function Row() {
   const [inputValue, setInputValue] = useState('');
-  const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetch('https://jsonplaceholder.typicode.com/todos')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Не робит' + res.status);
-        }
-        return res.json();
-      })
-      .then((data) => {
-        const todosWithLocalId = data.slice(0, 10).map((todo) => ({
-          ...todo,
-          localId: todo.id,
-        }));
-        setTodos(todosWithLocalId);
-      })
-      .catch((err) => {
-        setError(err.message);
-        console.error('Ошибка', err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+  const { todos, setTodos, loading, error } = useFetchTodos();
 
   const handleAddTodo = () => {
     if (!inputValue) return;
