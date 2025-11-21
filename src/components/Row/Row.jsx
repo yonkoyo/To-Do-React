@@ -1,15 +1,12 @@
+import { TextInput, Button, Stack, Group, Checkbox } from '@mantine/core';
 import { useState } from 'react';
 
 export function Row() {
   const [inputValue, setInputValue] = useState('');
   const [todos, setTodos] = useState([]);
 
-  const handleInputChange = (event) => {
-    setInputValue(event.target.value);
-  };
-
   const handleAddTodo = () => {
-    if (inputValue.trim() !== '') {
+    if (typeof inputValue === 'string' && inputValue.trim() !== '') {
       const newTodo = {
         id: Date.now(),
         title: inputValue,
@@ -31,23 +28,36 @@ export function Row() {
   };
 
   return (
-    <div>
-      <input
-        type="text"
+    <Stack p="md" w={400} mx="auto">
+      <TextInput
         value={inputValue}
-        onChange={handleInputChange}
+        onChange={(event) => setInputValue(event.currentTarget.value)}
         placeholder="Add your task"
       />
-      <button onClick={handleAddTodo}>Add</button>
-      <ul>
+      <Button onClick={handleAddTodo}>Add</Button>
+      <div>
         {todos.map((todo) => (
-          <li key={todo.id}>
-            <span onClick={() => toggleCompleted(todo.id)}>{todo.completed ? '✅' : '◻'}</span>{' '}
-            {todo.title}
-            <button onClick={() => removeTodo(todo.id)}>×</button>
-          </li>
+          <Group key={todo.id} gap="xs" mb="xs">
+            <Checkbox
+              checked={todo.completed}
+              onChange={() => toggleCompleted(todo.id)}
+              label={
+                <span style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+                  {todo.title}
+                </span>
+              }
+            />
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              onClick={() => removeTodo(todo.id)}
+            >
+              X
+            </Button>
+          </Group>
         ))}
-      </ul>
-    </div>
+      </div>
+    </Stack>
   );
 }
